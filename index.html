@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GoClaw WebChat — Dev</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+      padding: 40px 24px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 28px; margin-bottom: 8px; }
+    p { color: #64748b; margin-bottom: 24px; line-height: 1.6; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+    button {
+      padding: 8px 16px; border-radius: 8px; border: 1px solid #e2e8f0;
+      background: white; cursor: pointer; font-size: 14px; transition: all 0.15s;
+    }
+    button:hover { background: #f1f5f9; border-color: #cbd5e1; }
+    code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+    pre {
+      background: #1e293b; color: #e2e8f0; padding: 16px; border-radius: 12px;
+      overflow-x: auto; font-size: 13px; line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <h1>GoClaw WebChat</h1>
+  <p>
+    Development preview. The chat widget is loaded in the bottom-right corner.
+    Use the controls below or click the launcher button to interact.
+  </p>
+
+  <div class="controls">
+    <button onclick="widget.open()">Open</button>
+    <button onclick="widget.close()">Close</button>
+    <button onclick="widget.toggle()">Toggle</button>
+    <button onclick="widget.send('Hello from dev page!')">Send Message</button>
+    <button onclick="switchTheme()">Switch Theme</button>
+  </div>
+
+  <h2 style="margin-bottom: 12px;">Quick Start</h2>
+  <pre><code>&lt;script src="https://cdn.example.com/goclaw-webchat.umd.js">&lt;/script>
+&lt;script>
+  GoClaw.init({
+    url: 'wss://your-goclaw-server.com/ws',
+    token: 'your-gateway-token',
+    title: 'Chat with us',
+    theme: 'auto',
+  });
+&lt;/script></code></pre>
+
+  <script type="module">
+    import { init } from './src/index.ts';
+
+    let isDark = false;
+
+    const widget = init({
+      url: 'wss://localhost:8080/ws',
+      token: 'dev-token',
+      title: 'AI Assistant',
+      subtitle: 'Online',
+      welcomeMessage: 'Hello! How can I help you today?',
+      placeholder: 'Type a message...',
+      theme: 'auto',
+      onOpen: () => console.log('[GoClaw] Chat opened'),
+      onClose: () => console.log('[GoClaw] Chat closed'),
+      onConnect: () => console.log('[GoClaw] Connected'),
+      onDisconnect: () => console.log('[GoClaw] Disconnected'),
+      onMessage: (msg) => console.log('[GoClaw] Message:', msg),
+      onError: (err) => console.log('[GoClaw] Error:', err.message),
+    });
+
+    // Expose to window for button controls
+    window.widget = widget;
+    window.switchTheme = () => {
+      isDark = !isDark;
+      widget.update({ theme: isDark ? 'dark' : 'light' });
+    };
+  </script>
+</body>
+</html>

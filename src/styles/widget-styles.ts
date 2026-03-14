@@ -56,6 +56,36 @@ export const WIDGET_CSS = /* css */ `
     transform: rotate(90deg);
   }
 
+  /* ── Unread Badge ── */
+  .gc-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 20px;
+    text-align: center;
+    display: none;
+    pointer-events: none;
+    animation: gc-badgePop 0.3s ease;
+  }
+
+  .gc-badge.gc-show {
+    display: block;
+  }
+
+  @keyframes gc-badgePop {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+
   /* Position variants */
   .gc-pos-bottom-right { bottom: 20px; right: 20px; }
   .gc-pos-bottom-left  { bottom: 20px; left: 20px; }

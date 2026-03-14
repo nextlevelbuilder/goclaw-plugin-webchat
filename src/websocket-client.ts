@@ -15,15 +15,10 @@ type EventCallback = (payload: Record<string, unknown>) => void;
 type StateCallback = (state: ConnectionState) => void;
 type MessageCallback = (message: ChatMessage) => void;
 
-/** Generates unique request IDs */
-let reqCounter = 0;
-function nextId(): string {
-  return `req_${++reqCounter}_${Date.now()}`;
-}
-
 export class GoClawWebSocketClient {
   private ws: WebSocket | null = null;
   private config: GoClawConfig;
+  private reqCounter = 0;
   private state: ConnectionState = 'disconnected';
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -32,6 +27,9 @@ export class GoClawWebSocketClient {
     reject: (reason: Error) => void;
     timer: ReturnType<typeof setTimeout>;
   }>();
+
+  // Promise that resolves when WS is open (for connect handshake)
+  private wsOpenPromise: Promise<void> | null = null;
 
   // Event listeners
   private eventListeners = new Map<string, Set<EventCallback>>();
@@ -54,13 +52,15 @@ export class GoClawWebSocketClient {
     this.setState('connecting');
 
     try {
-      this.ws = new WebSocket(this.config.url);
-      this.ws.onopen = () => this.handleOpen();
-      this.ws.onclose = (e) => this.handleClose(e);
-      this.ws.onerror = () => this.handleError(new Error('WebSocket error'));
-      this.ws.onmessage = (e) => this.handleMessage(e);
+      await this.createAndAuthenticate();
+      this.setState('connected');
+      this.reconnectAttempts = 0;
+      this.config.onConnect?.();
     } catch (err) {
-      this.setState('disconnected');
+      // Only set disconnected if not already reconnecting
+      if (this.state !== 'reconnecting') {
+        this.setState('disconnected');
+      }
       throw err;
     }
   }
@@ -69,7 +69,7 @@ export class GoClawWebSocketClient {
     this.clearReconnectTimer();
     this.reconnectAttempts = 0;
     if (this.ws) {
-      this.ws.onclose = null; // Prevent reconnect
+      this.ws.onclose = null; // Prevent reconnect trigger
       this.ws.close();
       this.ws = null;
     }
@@ -93,7 +93,7 @@ export class GoClawWebSocketClient {
     if (this.config.agentId) params.agent_id = this.config.agentId;
     if (this.currentSessionId) params.session_id = this.currentSessionId;
 
-    // Create user message immediately
+    // Create user message immediately for optimistic UI
     const userMsg: ChatMessage = {
       id: `user_${Date.now()}`,
       role: 'user',
@@ -115,6 +115,13 @@ export class GoClawWebSocketClient {
 
     const res = await this.request('chat.send', params);
     if (!res.ok) {
+      // Mark streaming message as failed
+      if (this.streamingMessage) {
+        this.streamingMessage.streaming = false;
+        this.streamingMessage.content = res.error?.message ?? 'Failed to send message';
+        this.notifyMessage({ ...this.streamingMessage });
+        this.streamingMessage = null;
+      }
       throw new Error(res.error?.message ?? 'Failed to send message');
     }
 
@@ -139,8 +146,8 @@ export class GoClawWebSocketClient {
     });
     if (!res.ok || !res.payload?.messages) return [];
     return (res.payload.messages as Array<Record<string, unknown>>).map(
-      (m) => ({
-        id: (m.id as string) || `hist_${Date.now()}_${Math.random()}`,
+      (m, i) => ({
+        id: (m.id as string) || `hist_${i}`,
         role: m.role as ChatMessage['role'],
         content: m.content as string,
         timestamp: m.timestamp ? Number(m.timestamp) : Date.now(),
@@ -173,18 +180,34 @@ export class GoClawWebSocketClient {
     return () => this.messageListeners.delete(callback);
   }
 
-  // ── Private: Connection Handling ──
+  // ── Private: Connection Lifecycle ──
 
-  private async handleOpen(): Promise<void> {
-    try {
-      await this.authenticate();
-      this.setState('connected');
-      this.reconnectAttempts = 0;
-      this.config.onConnect?.();
-    } catch (err) {
-      this.config.onError?.(err instanceof Error ? err : new Error(String(err)));
-      this.ws?.close();
-    }
+  /** Create WebSocket, wait for open, then authenticate */
+  private createAndAuthenticate(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        this.ws = new WebSocket(this.config.url);
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error(String(err)));
+        return;
+      }
+
+      this.ws.onopen = async () => {
+        try {
+          await this.authenticate();
+          resolve();
+        } catch (err) {
+          this.ws?.close();
+          reject(err instanceof Error ? err : new Error(String(err)));
+        }
+      };
+
+      this.ws.onclose = (e) => this.handleClose(e);
+      this.ws.onerror = () => {
+        reject(new Error('WebSocket connection failed'));
+      };
+      this.ws.onmessage = (e) => this.handleMessage(e);
+    });
   }
 
   private handleClose(event: CloseEvent): void {
@@ -197,10 +220,6 @@ export class GoClawWebSocketClient {
       this.setState('disconnected');
       this.config.onDisconnect?.();
     }
-  }
-
-  private handleError(error: Error): void {
-    this.config.onError?.(error);
   }
 
   private handleMessage(event: MessageEvent): void {
@@ -229,11 +248,11 @@ export class GoClawWebSocketClient {
   private handleEvent(frame: WsEvent): void {
     const payload = frame.payload ?? {};
 
-    // Emit raw event
+    // Emit raw event to listeners
     const listeners = this.eventListeners.get(frame.event);
     listeners?.forEach((cb) => cb(payload));
 
-    // Handle streaming events
+    // Handle streaming events for chat UI
     switch (frame.event) {
       case 'chunk':
         if (this.streamingMessage) {
@@ -249,8 +268,7 @@ export class GoClawWebSocketClient {
             id: payload.id as string,
             status: 'running',
           };
-          this.streamingMessage.toolCalls =
-            this.streamingMessage.toolCalls || [];
+          this.streamingMessage.toolCalls = this.streamingMessage.toolCalls || [];
           this.streamingMessage.toolCalls.push(toolCall);
           this.notifyMessage({ ...this.streamingMessage });
         }
@@ -293,17 +311,18 @@ export class GoClawWebSocketClient {
 
   // ── Private: Auth ──
 
-  private async authenticate(): Promise<void> {
+  private authenticate(): Promise<void> {
     const params: Record<string, unknown> = {
       protocol: 3,
       user_id: this.config.userId || `web_${Date.now()}`,
     };
     if (this.config.token) params.token = this.config.token;
 
-    const res = await this.request('connect', params);
-    if (!res.ok) {
-      throw new Error(res.error?.message || 'Authentication failed');
-    }
+    return this.request('connect', params).then((res) => {
+      if (!res.ok) {
+        throw new Error(res.error?.message || 'Authentication failed');
+      }
+    });
   }
 
   // ── Private: Request/Response ──
@@ -315,14 +334,11 @@ export class GoClawWebSocketClient {
   ): Promise<WsResponse> {
     return new Promise((resolve, reject) => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-        // Allow connect request during CONNECTING state
-        if (method !== 'connect' || !this.ws || this.ws.readyState !== WebSocket.CONNECTING) {
-          reject(new Error('Not connected'));
-          return;
-        }
+        reject(new Error('Not connected'));
+        return;
       }
 
-      const id = nextId();
+      const id = `req_${++this.reqCounter}_${Date.now()}`;
       const frame: WsRequest = { type: 'req', id, method, params };
 
       const timer = setTimeout(() => {
@@ -332,25 +348,12 @@ export class GoClawWebSocketClient {
 
       this.pendingRequests.set(id, { resolve, reject, timer });
 
-      const send = () => {
-        try {
-          this.ws!.send(JSON.stringify(frame));
-        } catch (err) {
-          clearTimeout(timer);
-          this.pendingRequests.delete(id);
-          reject(err instanceof Error ? err : new Error(String(err)));
-        }
-      };
-
-      // If connect method, wait for ws open
-      if (method === 'connect' && this.ws!.readyState === WebSocket.CONNECTING) {
-        const origOnOpen = this.ws!.onopen;
-        this.ws!.onopen = (e) => {
-          send();
-          if (origOnOpen) (origOnOpen as (e: Event) => void).call(this.ws, e);
-        };
-      } else {
-        send();
+      try {
+        this.ws.send(JSON.stringify(frame));
+      } catch (err) {
+        clearTimeout(timer);
+        this.pendingRequests.delete(id);
+        reject(err instanceof Error ? err : new Error(String(err)));
       }
     });
   }

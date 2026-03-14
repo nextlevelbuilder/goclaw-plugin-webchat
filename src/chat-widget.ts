@@ -7,6 +7,11 @@ import { WIDGET_CSS } from './styles/widget-styles';
 import { ICON_CHAT, ICON_CLOSE, ICON_SEND, ICON_CHECK } from './svg-icons';
 import { renderMarkdown } from './markdown-renderer';
 
+const STORAGE_KEY = 'goclaw_webchat_session';
+
+/** Max message length to prevent abuse */
+const MAX_MESSAGE_LENGTH = 10000;
+
 export class ChatWidget implements GoClawWidget {
   private config: GoClawConfig;
   private client: GoClawWebSocketClient;
@@ -14,6 +19,10 @@ export class ChatWidget implements GoClawWidget {
   private shadow!: ShadowRoot;
   private messages: ChatMessage[] = [];
   private isWindowOpen = false;
+  private unreadCount = 0;
+
+  // Cleanup functions for destroy()
+  private cleanupFns: Array<() => void> = [];
 
   // DOM refs (set in buildDOM)
   private launcher!: HTMLButtonElement;
@@ -25,6 +34,7 @@ export class ChatWidget implements GoClawWidget {
   private statusBar!: HTMLElement;
   private statusDot!: HTMLElement;
   private statusText!: HTMLElement;
+  private badge!: HTMLElement;
 
   constructor(config: GoClawConfig) {
     this.config = {
@@ -37,6 +47,11 @@ export class ChatWidget implements GoClawWidget {
       zIndex: 999999,
       ...config,
     };
+
+    // Restore session ID from storage if not explicitly set
+    if (!this.config.sessionId) {
+      this.config.sessionId = this.loadSessionId() ?? undefined;
+    }
 
     this.client = new GoClawWebSocketClient(this.config);
     this.buildDOM();
@@ -58,6 +73,8 @@ export class ChatWidget implements GoClawWidget {
 
   open(): void {
     this.isWindowOpen = true;
+    this.unreadCount = 0;
+    this.updateBadge();
     this.window.classList.add('gc-visible');
     this.launcher.classList.add('gc-open');
     this.input.focus();
@@ -81,15 +98,26 @@ export class ChatWidget implements GoClawWidget {
   }
 
   async send(message: string): Promise<void> {
-    if (!message.trim()) return;
+    const trimmed = message.trim();
+    if (!trimmed) return;
+    if (trimmed.length > MAX_MESSAGE_LENGTH) {
+      this.config.onError?.(new Error(`Message exceeds ${MAX_MESSAGE_LENGTH} character limit`));
+      return;
+    }
     try {
-      await this.client.sendMessage(message.trim());
+      await this.client.sendMessage(trimmed);
+      // Persist session ID after successful send
+      const sid = this.client.getSessionId();
+      if (sid) this.saveSessionId(sid);
     } catch (err) {
       this.config.onError?.(err instanceof Error ? err : new Error(String(err)));
     }
   }
 
   destroy(): void {
+    // Run all cleanup functions (event listener removals, etc.)
+    this.cleanupFns.forEach((fn) => fn());
+    this.cleanupFns = [];
     this.client.disconnect();
     this.host.remove();
   }
@@ -118,7 +146,6 @@ export class ChatWidget implements GoClawWidget {
   // ── DOM Construction ──
 
   private buildDOM(): void {
-    // Host element
     this.host = document.createElement('div');
     this.host.id = 'goclaw-webchat';
     this.shadow = this.host.attachShadow({ mode: 'open' });
@@ -131,12 +158,13 @@ export class ChatWidget implements GoClawWidget {
 
       <button class="gc-launcher ${posClass}" aria-label="Open chat">
         ${ICON_CHAT}
+        <span class="gc-badge" aria-live="polite"></span>
       </button>
 
-      <div class="gc-window ${posClass}">
+      <div class="gc-window ${posClass}" role="dialog" aria-label="${this.escapeAttr(this.config.title!)}">
         <div class="gc-header">
           ${this.config.agentAvatar
-            ? `<img class="gc-header-avatar" src="${this.escapeAttr(this.config.agentAvatar)}" alt="Agent" />`
+            ? `<img class="gc-header-avatar" src="${this.escapeAttr(this.config.agentAvatar)}" alt="Agent avatar" />`
             : ''
           }
           <div class="gc-header-info">
@@ -156,7 +184,7 @@ export class ChatWidget implements GoClawWidget {
           <span class="gc-status-text">Connecting...</span>
         </div>
 
-        <div class="gc-messages">
+        <div class="gc-messages" role="log" aria-live="polite">
           ${this.config.welcomeMessage
             ? `<div class="gc-welcome">
                 <span class="gc-welcome-icon">💬</span>
@@ -166,7 +194,7 @@ export class ChatWidget implements GoClawWidget {
           }
         </div>
 
-        <div class="gc-typing">
+        <div class="gc-typing" aria-label="Agent is typing">
           <span class="gc-typing-dot"></span>
           <span class="gc-typing-dot"></span>
           <span class="gc-typing-dot"></span>
@@ -190,7 +218,7 @@ export class ChatWidget implements GoClawWidget {
       </div>
     `;
 
-    // Cache refs
+    // Cache DOM refs
     this.launcher = this.shadow.querySelector('.gc-launcher')!;
     this.window = this.shadow.querySelector('.gc-window')!;
     this.messageList = this.shadow.querySelector('.gc-messages')!;
@@ -200,8 +228,9 @@ export class ChatWidget implements GoClawWidget {
     this.statusBar = this.shadow.querySelector('.gc-status')!;
     this.statusDot = this.shadow.querySelector('.gc-status-dot')!;
     this.statusText = this.shadow.querySelector('.gc-status-text')!;
+    this.badge = this.shadow.querySelector('.gc-badge')!;
 
-    // Mount
+    // Mount to container
     const container = this.config.container ?? document.body;
     container.appendChild(this.host);
   }
@@ -209,19 +238,18 @@ export class ChatWidget implements GoClawWidget {
   // ── Event Binding ──
 
   private bindEvents(): void {
-    // Launcher click
     this.launcher.addEventListener('click', () => this.toggle());
 
-    // Close button
     this.shadow.querySelector('.gc-header-close')!
       .addEventListener('click', () => this.close());
 
-    // Input handling
+    // Input: enable/disable send, auto-resize
     this.input.addEventListener('input', () => {
       this.sendBtn.disabled = !this.input.value.trim();
       this.autoResize();
     });
 
+    // Enter to send (Shift+Enter for newline)
     this.input.addEventListener('keydown', (e: KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -229,32 +257,35 @@ export class ChatWidget implements GoClawWidget {
       }
     });
 
-    // Send button
+    // Escape to close
+    this.window.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Escape') this.close();
+    });
+
     this.sendBtn.addEventListener('click', () => this.handleSend());
 
-    // WebSocket events
-    this.client.onMessage((msg) => this.handleMessage(msg));
-    this.client.onStateChange((state) => this.handleStateChange(state));
+    // WebSocket events — store unsubscribers for cleanup
+    this.cleanupFns.push(
+      this.client.onMessage((msg) => this.handleMessage(msg)),
+      this.client.onStateChange((state) => this.handleStateChange(state)),
+      this.client.on('run.started', () => {
+        this.typingIndicator.classList.add('gc-show');
+        this.scrollToBottom();
+      }),
+      this.client.on('run.completed', () => {
+        this.typingIndicator.classList.remove('gc-show');
+      }),
+      this.client.on('run.failed', () => {
+        this.typingIndicator.classList.remove('gc-show');
+      }),
+    );
 
-    // Listen for run.started to show typing
-    this.client.on('run.started', () => {
-      this.typingIndicator.classList.add('gc-show');
-      this.scrollToBottom();
-    });
-
-    // Listen for run.completed/failed to hide typing
-    this.client.on('run.completed', () => {
-      this.typingIndicator.classList.remove('gc-show');
-    });
-
-    this.client.on('run.failed', () => {
-      this.typingIndicator.classList.remove('gc-show');
-    });
-
-    // Auto-theme switching
-    if (this.config.theme === 'auto' || (!this.config.theme)) {
-      window.matchMedia('(prefers-color-scheme: dark)')
-        .addEventListener('change', () => this.applyTheme());
+    // Auto-theme switching for 'auto' mode
+    if (this.config.theme === 'auto' || !this.config.theme) {
+      const mql = window.matchMedia('(prefers-color-scheme: dark)');
+      const handler = () => this.applyTheme();
+      mql.addEventListener('change', handler);
+      this.cleanupFns.push(() => mql.removeEventListener('change', handler));
     }
   }
 
@@ -278,6 +309,21 @@ export class ChatWidget implements GoClawWidget {
     } else {
       this.messages.push(msg);
       this.appendMessageElement(msg);
+
+      // Increment unread if chat is closed and message is from assistant (non-streaming start)
+      if (!this.isWindowOpen && msg.role === 'assistant' && !msg.streaming) {
+        this.unreadCount++;
+        this.updateBadge();
+      }
+    }
+
+    // Track unread for completed assistant streaming messages
+    if (!this.isWindowOpen && msg.role === 'assistant' && msg.streaming === false) {
+      // Only count once when streaming finishes (content > 0 means real message)
+      if (msg.content && existing >= 0) {
+        this.unreadCount++;
+        this.updateBadge();
+      }
     }
 
     // Remove welcome message on first real message
@@ -289,21 +335,20 @@ export class ChatWidget implements GoClawWidget {
 
   private appendMessageElement(msg: ChatMessage): void {
     const el = this.createMessageElement(msg);
-    // Insert before typing indicator's parent (messages container)
     this.messageList.appendChild(el);
   }
 
   private updateMessageElement(msg: ChatMessage): void {
-    const el = this.shadow.querySelector(`[data-msg-id="${msg.id}"]`);
+    const el = this.findMessageElement(msg.id);
     if (!el) return;
 
-    // Update content
+    // Update rendered content
     const contentEl = el.querySelector('.gc-msg-content');
     if (contentEl && msg.role === 'assistant') {
       contentEl.innerHTML = renderMarkdown(msg.content);
     }
 
-    // Update tool calls
+    // Update tool call indicators
     if (msg.toolCalls?.length) {
       let toolContainer = el.querySelector('.gc-msg-tools');
       if (!toolContainer) {
@@ -323,7 +368,6 @@ export class ChatWidget implements GoClawWidget {
         `).join('');
     }
 
-    // Remove streaming cursor when done
     if (!msg.streaming) {
       el.classList.remove('gc-streaming');
     }
@@ -350,7 +394,6 @@ export class ChatWidget implements GoClawWidget {
   // ── Connection State ──
 
   private handleStateChange(state: ConnectionState): void {
-    // Update status dot
     this.statusDot.className = `gc-status-dot gc-${state}`;
 
     const labels: Record<ConnectionState, string> = {
@@ -361,17 +404,53 @@ export class ChatWidget implements GoClawWidget {
     };
     this.statusText.textContent = labels[state];
 
-    // Show status bar only when not connected
     if (state === 'connected') {
-      // Show briefly then hide
       this.statusBar.classList.add('gc-show');
       setTimeout(() => this.statusBar.classList.remove('gc-show'), 2000);
     } else {
       this.statusBar.classList.add('gc-show');
     }
 
-    // Disable input when disconnected
-    this.input.disabled = state === 'disconnected';
+    // Disable input when not connected
+    const canSend = state === 'connected';
+    this.input.disabled = !canSend;
+    if (!canSend) this.sendBtn.disabled = true;
+  }
+
+  // ── Unread Badge ──
+
+  private updateBadge(): void {
+    if (this.unreadCount > 0) {
+      this.badge.textContent = this.unreadCount > 99 ? '99+' : String(this.unreadCount);
+      this.badge.classList.add('gc-show');
+    } else {
+      this.badge.textContent = '';
+      this.badge.classList.remove('gc-show');
+    }
+  }
+
+  // ── Session Persistence ──
+
+  private saveSessionId(sessionId: string): void {
+    try {
+      const key = this.storageKey();
+      sessionStorage.setItem(key, sessionId);
+    } catch {
+      // sessionStorage unavailable (e.g. incognito in some browsers)
+    }
+  }
+
+  private loadSessionId(): string | null {
+    try {
+      return sessionStorage.getItem(this.storageKey());
+    } catch {
+      return null;
+    }
+  }
+
+  private storageKey(): string {
+    // Scope storage key by URL to avoid cross-site collisions
+    return `${STORAGE_KEY}_${this.config.url}`;
   }
 
   // ── Theme ──
@@ -390,6 +469,15 @@ export class ChatWidget implements GoClawWidget {
   }
 
   // ── Helpers ──
+
+  /** Safe message element lookup — avoids querySelector injection from server-controlled IDs */
+  private findMessageElement(id: string): Element | null {
+    const children = this.messageList.children;
+    for (let i = children.length - 1; i >= 0; i--) {
+      if (children[i].getAttribute('data-msg-id') === id) return children[i];
+    }
+    return null;
+  }
 
   private scrollToBottom(): void {
     requestAnimationFrame(() => {
