@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GoClaw WebChat - Basic Example</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }
+    h1 { color: #6366f1; }
+    code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
+    pre { background: #1f2937; color: #f9fafb; padding: 16px; border-radius: 8px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>GoClaw WebChat - Basic Example</h1>
+  <p>This page demonstrates the simplest integration. A chat widget appears in the bottom-right corner.</p>
+
+  <h2>Integration Code</h2>
+  <pre><code>&lt;script src="https://cdn.example.com/goclaw-webchat.umd.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  GoClaw.init({
+    url: 'wss://your-goclaw-server.com/ws',
+    token: 'your-gateway-token',
+    title: 'Chat with us',
+    theme: 'auto',
+  });
+&lt;/script&gt;</code></pre>
+
+  <h2>Features Demonstrated</h2>
+  <ul>
+    <li>Auto theme (follows system preference)</li>
+    <li>Token-based authentication</li>
+    <li>Default position (bottom-right)</li>
+    <li>Welcome message</li>
+  </ul>
+
+  <!-- GoClaw WebChat Integration -->
+  <script src="../dist/goclaw-webchat.umd.js"></script>
+  <script>
+    // Replace with your actual GoClaw server URL and token
+    GoClaw.init({
+      url: 'wss://localhost:8080/ws',
+      token: 'demo-token',
+      title: 'AI Assistant',
+      subtitle: 'Ask me anything',
+      welcomeMessage: 'Hello! How can I help you today?',
+      theme: 'auto',
+      placeholder: 'Type your message...',
+    });
+  </script>
+</body>
+</html>

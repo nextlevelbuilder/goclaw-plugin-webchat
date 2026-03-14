@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GoClaw WebChat - Customized Example</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }
+    h1 { color: #059669; }
+    .demo-buttons { display: flex; gap: 8px; flex-wrap: wrap; margin: 20px 0; }
+    .demo-buttons button {
+      padding: 8px 16px; border-radius: 8px; border: 1px solid #d1d5db;
+      background: white; cursor: pointer; font-size: 14px;
+    }
+    .demo-buttons button:hover { background: #f3f4f6; }
+  </style>
+</head>
+<body>
+  <h1>GoClaw WebChat - Customized Example</h1>
+  <p>Custom branding, bottom-left position, programmatic control.</p>
+
+  <div class="demo-buttons">
+    <button onclick="widget.open()">Open Chat</button>
+    <button onclick="widget.close()">Close Chat</button>
+    <button onclick="widget.toggle()">Toggle Chat</button>
+    <button onclick="widget.send('Hello from JS!')">Send Message</button>
+    <button onclick="switchTheme()">Switch Theme</button>
+  </div>
+
+  <h2>Custom Theme</h2>
+  <pre style="background: #1f2937; color: #f9fafb; padding: 16px; border-radius: 8px;"><code>GoClaw.init({
+  url: 'wss://your-server.com/ws',
+  token: 'your-token',
+  position: 'bottom-left',
+  theme: {
+    base: 'light',
+    primaryColor: '#059669',
+    userBubbleColor: '#059669',
+    borderRadius: '12px',
+    fontFamily: '"Inter", sans-serif',
+  },
+});</code></pre>
+
+  <script src="../dist/goclaw-webchat.umd.js"></script>
+  <script>
+    let isDark = false;
+
+    const widget = GoClaw.init({
+      url: 'wss://localhost:8080/ws',
+      token: 'demo-token',
+      title: 'Emerald Support',
+      subtitle: 'Online',
+      position: 'bottom-left',
+      welcomeMessage: 'Welcome! Our AI assistant is ready to help.',
+      placeholder: 'Ask a question...',
+      theme: {
+        base: 'light',
+        primaryColor: '#059669',
+        userBubbleColor: '#059669',
+        borderRadius: '12px',
+      },
+      onOpen: () => console.log('Chat opened'),
+      onClose: () => console.log('Chat closed'),
+      onMessage: (msg) => console.log('Message:', msg),
+      onConnect: () => console.log('Connected to GoClaw'),
+    });
+
+    function switchTheme() {
+      isDark = !isDark;
+      widget.update({
+        theme: {
+          base: isDark ? 'dark' : 'light',
+          primaryColor: '#059669',
+          userBubbleColor: '#059669',
+          borderRadius: '12px',
+        },
+      });
+    }
+  </script>
+</body>
+</html>

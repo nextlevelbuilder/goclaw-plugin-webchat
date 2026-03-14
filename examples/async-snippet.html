@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GoClaw WebChat - Async Snippet (like Intercom)</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }
+    h1 { color: #6366f1; }
+    pre { background: #1f2937; color: #f9fafb; padding: 16px; border-radius: 8px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Async Snippet Example</h1>
+  <p>This loading pattern is non-blocking — the script loads asynchronously and processes queued commands. Identical to how Intercom, Drift, and similar widgets load.</p>
+
+  <h2>Copy-Paste Snippet</h2>
+  <pre><code>&lt;script&gt;
+  // GoClaw WebChat async loader
+  (function(w,d,s,u){
+    w.__goclaw_queue=w.__goclaw_queue||[];
+    w.GoClaw=w.GoClaw||{init:function(){w.__goclaw_queue.push(['init',arguments[0]])}};
+    var f=d.getElementsByTagName(s)[0],j=d.createElement(s);
+    j.async=true;j.src=u;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','https://cdn.example.com/goclaw-webchat.umd.js');
+
+  GoClaw.init({
+    url: 'wss://your-server.com/ws',
+    token: 'your-token',
+    title: 'Chat with us',
+    theme: 'auto',
+  });
+&lt;/script&gt;</code></pre>
+
+  <!-- Async loader -->
+  <script>
+    (function(w,d,s,u){
+      w.__goclaw_queue=w.__goclaw_queue||[];
+      w.GoClaw=w.GoClaw||{init:function(){w.__goclaw_queue.push(['init',arguments[0]])}};
+      var f=d.getElementsByTagName(s)[0],j=d.createElement(s);
+      j.async=true;j.src=u;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','../dist/goclaw-webchat.umd.js');
+
+    GoClaw.init({
+      url: 'wss://localhost:8080/ws',
+      token: 'demo-token',
+      title: 'Chat Support',
+      subtitle: 'AI-powered',
+      theme: 'light',
+      welcomeMessage: 'Hi! This widget loaded asynchronously — just like Intercom.',
+    });
+  </script>
+</body>
+</html>
