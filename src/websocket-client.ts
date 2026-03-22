@@ -28,9 +28,6 @@ export class GoClawWebSocketClient {
     timer: ReturnType<typeof setTimeout>;
   }>();
 
-  // Promise that resolves when WS is open (for connect handshake)
-  private wsOpenPromise: Promise<void> | null = null;
-
   // Event listeners
   private eventListeners = new Map<string, Set<EventCallback>>();
   private stateListeners = new Set<StateCallback>();
@@ -186,7 +183,13 @@ export class GoClawWebSocketClient {
   private createAndAuthenticate(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        this.ws = new WebSocket(this.config.url);
+        let wsUrl = this.config.url;
+        // Append API key if configured
+        if (this.config.apiKey) {
+          const separator = wsUrl.includes('?') ? '&' : '?';
+          wsUrl = `${wsUrl}${separator}apiKey=${encodeURIComponent(this.config.apiKey)}`;
+        }
+        this.ws = new WebSocket(wsUrl);
       } catch (err) {
         reject(err instanceof Error ? err : new Error(String(err)));
         return;
@@ -316,7 +319,7 @@ export class GoClawWebSocketClient {
       protocol: 3,
       user_id: this.config.userId || `web_${Date.now()}`,
     };
-    if (this.config.token) params.token = this.config.token;
+    // Auth token is injected server-side by the proxy — never sent from client
 
     return this.request('connect', params).then((res) => {
       if (!res.ok) {
