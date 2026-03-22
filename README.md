@@ -103,12 +103,48 @@ app.use(GoClawPlugin, {
 });
 ```
 
+## Proxy Mode (Recommended for Production)
+
+By default, the widget connects directly to the GoClaw Gateway and requires a `token` in client-side code — which is **visible in browser devtools**. For production, use the included **proxy server** to keep the token server-side:
+
+```
+Browser Widget ←→ Proxy Server (:3100) ←→ GoClaw Gateway (:9090)
+  (no token)      (holds token)           (validates token)
+```
+
+### Setup
+
+```bash
+cd server/
+cp .env.example .env
+# Edit .env: set GOCLAW_URL and GOCLAW_TOKEN
+npm install
+npm run dev
+```
+
+### Client Config (no token needed!)
+
+```html
+<script src="goclaw-webchat.umd.js"></script>
+<script>
+  GoClaw.init({
+    url: 'wss://your-goclaw-server.com/ws',  // fallback for direct mode
+    proxyUrl: 'wss://proxy.example.com/ws',   // proxy handles auth
+    title: 'Chat with us',
+    theme: 'auto',
+  });
+</script>
+```
+
+The proxy supports origin validation (`ALLOWED_ORIGINS`), per-IP connection limits, and graceful shutdown.
+
 ## Configuration
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `url` | `string` | *required* | GoClaw WebSocket URL (`wss://...`) |
-| `token` | `string` | — | Gateway authentication token |
+| `proxyUrl` | `string` | — | Proxy server WebSocket URL (recommended for production) |
+| `token` | `string` | — | Gateway authentication token (not needed with proxy) |
 | `userId` | `string` | auto-generated | User identifier |
 | `agentId` | `string` | — | Specific agent to chat with |
 | `sessionId` | `string` | — | Resume a previous session |
