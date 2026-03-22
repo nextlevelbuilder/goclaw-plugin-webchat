@@ -18,7 +18,7 @@ export class WebSocketProxySession {
   private sessionId: string;
   private pendingMessages: string[] = [];
   private connectTimeout: ReturnType<typeof setTimeout> | null = null;
-  private msgTimestamps: number[] = []; // sliding window for rate limiting
+  private msgTimestamps: number[] = [];
 
   constructor(
     private client: WebSocket,
@@ -34,7 +34,7 @@ export class WebSocketProxySession {
 
     try {
       this.upstream = new WebSocket(this.config.goclawUrl, {
-        maxPayload: 512 * 1024, // 512KB max frame size (matches GoClaw gateway)
+        maxPayload: 512 * 1024,
       });
     } catch (err) {
       this.log('error', `upstream connection failed: ${err}`);
@@ -42,11 +42,9 @@ export class WebSocketProxySession {
       return;
     }
 
-    // Timeout if upstream doesn't connect within 10 seconds
     this.connectTimeout = setTimeout(() => {
       this.log('error', 'upstream connection timed out');
-      this.upstream?.close();
-      this.closeClient(1011, 'upstream timeout');
+      this.destroy();
     }, 10_000);
 
     this.upstream.on('open', () => {
@@ -57,14 +55,13 @@ export class WebSocketProxySession {
       this.upstreamReady = true;
       this.log('info', 'upstream connected');
 
-      // Flush any messages queued while upstream was connecting
       for (const msg of this.pendingMessages) {
         this.upstream!.send(msg);
       }
       this.pendingMessages = [];
     });
 
-    // Relay upstream → client (strip any token fields for defense in depth)
+    // Relay upstream → client (strip token fields for defense in depth)
     this.upstream.on('message', (data) => {
       if (this.closed || this.client.readyState !== WebSocket.OPEN) return;
       this.client.send(this.sanitizeUpstreamFrame(data.toString()));
@@ -72,19 +69,18 @@ export class WebSocketProxySession {
 
     this.upstream.on('close', (code, reason) => {
       this.log('info', `upstream closed: ${code} ${reason}`);
-      this.closeClient(code, reason.toString());
+      this.destroy(code, reason.toString());
     });
 
     this.upstream.on('error', (err) => {
       this.log('error', `upstream error: ${err.message}`);
-      this.closeClient(1011, 'upstream error');
+      this.destroy(1011, 'upstream error');
     });
 
     // Relay client → upstream (intercept `connect` to inject token)
     this.client.on('message', (data) => {
       if (this.closed || !this.upstream) return;
 
-      // Rate limit: sliding window
       if (!this.checkRateLimit()) {
         this.log('warn', 'message rate limit exceeded');
         return;
@@ -92,9 +88,8 @@ export class WebSocketProxySession {
 
       const raw = data.toString();
       const modified = this.interceptFrame(raw);
-      if (!modified) return; // dropped non-JSON frame
+      if (modified === null) return; // dropped non-JSON frame
 
-      // Buffer messages until upstream is open (with cap)
       if (!this.upstreamReady) {
         if (this.pendingMessages.length >= MAX_PENDING_MESSAGES) {
           this.log('warn', 'pending buffer full, dropping message');
@@ -110,21 +105,21 @@ export class WebSocketProxySession {
 
     this.client.on('close', () => {
       this.log('info', 'client disconnected');
-      this.closeUpstream();
+      this.destroy();
     });
 
     this.client.on('error', (err) => {
       this.log('error', `client error: ${err.message}`);
-      this.closeUpstream();
+      this.destroy();
     });
   }
 
-  /** Intercept outgoing frames to inject auth token into connect requests */
-  private interceptFrame(raw: string): string {
+  /** Intercept outgoing frames to inject auth token into connect requests.
+   *  Returns null for non-JSON frames (dropped per GoClaw protocol). */
+  private interceptFrame(raw: string): string | null {
     try {
       const frame = JSON.parse(raw);
 
-      // Only intercept "connect" method requests
       if (frame.type !== 'req' || frame.method !== 'connect') {
         return raw;
       }
@@ -146,7 +141,7 @@ export class WebSocketProxySession {
     } catch {
       // GoClaw protocol is JSON-only — drop non-JSON frames
       this.log('warn', 'dropping non-JSON frame from client');
-      return '';
+      return null;
     }
   }
 
@@ -165,42 +160,35 @@ export class WebSocketProxySession {
   /** Sliding window rate limiter: returns true if message is allowed */
   private checkRateLimit(): boolean {
     const now = Date.now();
-    // Remove timestamps outside the window
     this.msgTimestamps = this.msgTimestamps.filter((t) => now - t < MSG_RATE_WINDOW_MS);
     if (this.msgTimestamps.length >= MSG_RATE_LIMIT) return false;
     this.msgTimestamps.push(now);
     return true;
   }
 
-  private closeClient(code: number, reason: string): void {
+  /** Clean up both connections. Optionally close client with a specific code/reason. */
+  destroy(clientCloseCode?: number, clientCloseReason?: string): void {
     if (this.closed) return;
     this.closed = true;
-    if (this.client.readyState === WebSocket.OPEN) {
-      this.client.close(code, reason);
-    }
-  }
 
-  private closeUpstream(): void {
-    if (this.closed) return;
-    this.closed = true;
-    if (this.upstream && this.upstream.readyState === WebSocket.OPEN) {
-      this.upstream.close();
-    }
-    this.upstream = null;
-  }
-
-  /** Clean up both connections */
-  destroy(): void {
-    this.closed = true;
     if (this.connectTimeout) {
       clearTimeout(this.connectTimeout);
       this.connectTimeout = null;
     }
+
     this.pendingMessages = [];
+    this.msgTimestamps = [];
+
+    // Close upstream
     if (this.upstream && this.upstream.readyState !== WebSocket.CLOSED) {
       this.upstream.close();
     }
     this.upstream = null;
+
+    // Close client
+    if (this.client.readyState === WebSocket.OPEN) {
+      this.client.close(clientCloseCode ?? 1000, clientCloseReason ?? 'session ended');
+    }
   }
 
   private log(level: string, message: string): void {

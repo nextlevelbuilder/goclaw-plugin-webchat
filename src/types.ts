@@ -1,17 +1,11 @@
 // ── GoClaw WebSocket Protocol v3 Types ──
 
 export interface GoClawConfig {
-  /** WebSocket URL for direct connection (e.g., "wss://goclaw.example.com/ws") */
+  /** Proxy server WebSocket URL (e.g., "wss://proxy.example.com/ws").
+   * The proxy keeps the gateway auth token server-side — never exposed to the client. */
   url: string;
-  /** Gateway token for direct authentication (⚠️ exposed in client-side code) */
-  token?: string;
-  /**
-   * Proxy server WebSocket URL (e.g., "wss://proxy.example.com/ws").
-   * When set, the widget connects through the proxy instead of directly to the gateway.
-   * The proxy keeps the auth token server-side — no token needed in client config.
-   * Mutually preferred over `url` + `token` for production deployments.
-   */
-  proxyUrl?: string;
+  /** API key for proxy authentication (appended as ?apiKey=xxx to url) */
+  apiKey?: string;
   /** User identifier */
   userId?: string;
   /** Agent ID to chat with (optional, uses default agent if omitted) */

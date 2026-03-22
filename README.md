@@ -2,9 +2,19 @@
 
 Embeddable chat widget for [GoClaw](https://goclaw.sh) AI agent gateway. Drop a `<script>` tag on any website and let visitors chat with your AI agents — like Intercom, but for GoClaw.
 
+## Architecture
+
+The widget connects through a **proxy server** that keeps the gateway auth token server-side. The token is never exposed to the browser.
+
+```
+Browser Widget ←→ Proxy Server (:3100) ←→ GoClaw Gateway (:9090)
+  (no token)      (holds token)           (validates token)
+```
+
 ## Features
 
 - **Zero dependencies** — Vanilla TypeScript, ~8KB gzipped
+- **Secure by default** — Auth token never leaves the server
 - **Shadow DOM isolation** — Styles never leak into or from host page
 - **Framework-agnostic** — Works with React, Vue, Angular, or plain HTML
 - **Real-time streaming** — Token-by-token LLM responses via WebSocket
@@ -15,6 +25,16 @@ Embeddable chat widget for [GoClaw](https://goclaw.sh) AI agent gateway. Drop a 
 - **Mobile responsive** — Full-screen on small viewports
 - **Accessible** — Keyboard navigation, ARIA labels
 
+## Proxy Server Setup
+
+```bash
+cd server/
+cp .env.example .env
+# Edit .env: set GOCLAW_URL, GOCLAW_TOKEN, and optionally PROXY_API_KEY
+npm install
+npm run dev
+```
+
 ## Quick Start
 
 ### Script Tag (simplest)
@@ -23,8 +43,7 @@ Embeddable chat widget for [GoClaw](https://goclaw.sh) AI agent gateway. Drop a 
 <script src="https://cdn.example.com/goclaw-webchat.umd.js"></script>
 <script>
   GoClaw.init({
-    url: 'wss://your-goclaw-server.com/ws',
-    token: 'your-gateway-token',
+    url: 'wss://proxy.example.com/ws',
     title: 'Chat with us',
     theme: 'auto',
   });
@@ -43,8 +62,7 @@ Embeddable chat widget for [GoClaw](https://goclaw.sh) AI agent gateway. Drop a 
   })(window,document,'script','https://cdn.example.com/goclaw-webchat.umd.js');
 
   GoClaw.init({
-    url: 'wss://your-server.com/ws',
-    token: 'your-token',
+    url: 'wss://proxy.example.com/ws',
     title: 'Support',
     theme: 'auto',
   });
@@ -61,8 +79,7 @@ npm install @goclaw/webchat
 import { init } from '@goclaw/webchat';
 
 const widget = init({
-  url: 'wss://goclaw.example.com/ws',
-  token: 'your-token',
+  url: 'wss://proxy.example.com/ws',
   title: 'AI Assistant',
   theme: 'dark',
 });
@@ -82,8 +99,7 @@ import { GoClawChat } from '@goclaw/webchat/react';
 function App() {
   return (
     <GoClawChat
-      url="wss://goclaw.example.com/ws"
-      token="your-token"
+      url="wss://proxy.example.com/ws"
       title="Support"
       theme="auto"
     />
@@ -97,54 +113,17 @@ function App() {
 import { GoClawPlugin } from '@goclaw/webchat/vue';
 
 app.use(GoClawPlugin, {
-  url: 'wss://goclaw.example.com/ws',
-  token: 'your-token',
+  url: 'wss://proxy.example.com/ws',
   title: 'AI Assistant',
 });
 ```
-
-## Proxy Mode (Recommended for Production)
-
-By default, the widget connects directly to the GoClaw Gateway and requires a `token` in client-side code — which is **visible in browser devtools**. For production, use the included **proxy server** to keep the token server-side:
-
-```
-Browser Widget ←→ Proxy Server (:3100) ←→ GoClaw Gateway (:9090)
-  (no token)      (holds token)           (validates token)
-```
-
-### Setup
-
-```bash
-cd server/
-cp .env.example .env
-# Edit .env: set GOCLAW_URL and GOCLAW_TOKEN
-npm install
-npm run dev
-```
-
-### Client Config (no token needed!)
-
-```html
-<script src="goclaw-webchat.umd.js"></script>
-<script>
-  GoClaw.init({
-    url: 'wss://your-goclaw-server.com/ws',  // fallback for direct mode
-    proxyUrl: 'wss://proxy.example.com/ws',   // proxy handles auth
-    title: 'Chat with us',
-    theme: 'auto',
-  });
-</script>
-```
-
-The proxy supports origin validation (`ALLOWED_ORIGINS`), per-IP connection limits, and graceful shutdown.
 
 ## Configuration
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `url` | `string` | *required* | GoClaw WebSocket URL (`wss://...`) |
-| `proxyUrl` | `string` | — | Proxy server WebSocket URL (recommended for production) |
-| `token` | `string` | — | Gateway authentication token (not needed with proxy) |
+| `url` | `string` | *required* | Proxy server WebSocket URL (`wss://...`) |
+| `apiKey` | `string` | — | API key for proxy authentication |
 | `userId` | `string` | auto-generated | User identifier |
 | `agentId` | `string` | — | Specific agent to chat with |
 | `sessionId` | `string` | — | Resume a previous session |
@@ -165,7 +144,7 @@ The proxy supports origin validation (`ALLOWED_ORIGINS`), per-IP connection limi
 
 ```js
 GoClaw.init({
-  url: 'wss://...',
+  url: 'wss://proxy.example.com/ws',
   theme: {
     base: 'dark',
     primaryColor: '#8b5cf6',
@@ -198,7 +177,7 @@ widget.destroy();                 // Remove widget & disconnect
 
 ```js
 GoClaw.init({
-  url: 'wss://...',
+  url: 'wss://proxy.example.com/ws',
   onOpen: () => console.log('Chat opened'),
   onClose: () => console.log('Chat closed'),
   onMessage: (msg) => console.log('Message:', msg),
@@ -211,17 +190,17 @@ GoClaw.init({
 ## GoClaw Server Setup
 
 1. Ensure your GoClaw server has WebSocket enabled (default on `/ws`)
-2. Add your widget's domain to `allowed_origins` in GoClaw config:
+2. Add the **proxy server's** origin to `allowed_origins` in GoClaw config:
 
 ```json
 {
   "gateway": {
-    "allowed_origins": ["https://your-website.com"]
+    "allowed_origins": ["https://your-proxy-server.com"]
   }
 }
 ```
 
-3. Use a gateway token for authentication, or set up browser pairing
+3. Configure the gateway token in the proxy server's `.env` file
 
 ## Development
 

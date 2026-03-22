@@ -31,6 +31,13 @@ export function startProxyServer(config: ProxyConfig): void {
     path: '/ws',
     maxPayload: 512 * 1024, // 512KB max frame size (matches GoClaw gateway limit)
     verifyClient: ({ req }, callback) => {
+      // API key check (optional — when PROXY_API_KEY is set, clients must provide it)
+      if (config.proxyApiKey && !checkApiKey(req, config.proxyApiKey)) {
+        console.warn('[proxy] invalid or missing API key');
+        callback(false, 401, 'Unauthorized');
+        return;
+      }
+
       // Origin check
       if (!checkOrigin(req, config.allowedOrigins)) {
         console.warn(`[proxy] origin rejected: ${req.headers.origin}`);
@@ -74,7 +81,9 @@ export function startProxyServer(config: ProxyConfig): void {
   httpServer.listen(config.port, () => {
     console.log(`[proxy] listening on :${config.port}`);
     console.log(`[proxy] upstream: ${config.goclawUrl}`);
+    // SECURITY: Never log the actual token value — only log its presence
     console.log(`[proxy] auth token: ${config.goclawToken ? 'configured' : 'NOT SET'}`);
+    console.log(`[proxy] API key: ${config.proxyApiKey ? 'required' : 'disabled'}`);
     if (config.allowedOrigins.length > 0) {
       console.log(`[proxy] allowed origins: ${config.allowedOrigins.join(', ')}`);
     } else {
@@ -98,6 +107,21 @@ export function startProxyServer(config: ProxyConfig): void {
 
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
+}
+
+/** Validate API key from query string or header.
+ * Key can be passed as ?apiKey=xxx query param or X-API-Key header. */
+function checkApiKey(req: IncomingMessage, expectedKey: string): boolean {
+  // Check query param: /ws?apiKey=xxx
+  const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+  const queryKey = url.searchParams.get('apiKey');
+  if (queryKey === expectedKey) return true;
+
+  // Check header: X-API-Key
+  const headerKey = req.headers['x-api-key'];
+  if (typeof headerKey === 'string' && headerKey === expectedKey) return true;
+
+  return false;
 }
 
 /** Validate request origin against allowed origins list.

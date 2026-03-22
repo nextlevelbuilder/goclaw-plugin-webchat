@@ -19,8 +19,7 @@ export interface GoClawChatProps extends GoClawConfig {
  * function App() {
  *   return (
  *     <GoClawChat
- *       url="wss://goclaw.example.com/ws"
- *       token="your-token"
+ *       url="wss://proxy.example.com/ws"
  *       title="Support"
  *       theme="auto"
  *     />
@@ -48,9 +47,9 @@ export function GoClawChat({ widgetRef, ...config }: GoClawChatProps) {
       widgetInstance.current = null;
       if (widgetRef) widgetRef.current = null;
     };
-    // Only re-create on url/token change
+    // Only re-create on url change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.url, config.token]);
+  }, [config.url]);
 
   return <div ref={containerRef} />;
 }

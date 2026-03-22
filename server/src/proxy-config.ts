@@ -20,6 +20,8 @@ export interface ProxyConfig {
   trustProxy: boolean;
   /** Log level: "debug" | "info" | "warn" | "error" (default: "info") */
   logLevel: LogLevel;
+  /** Optional API key to authenticate proxy connections (empty = no auth required) */
+  proxyApiKey?: string;
 }
 
 /** Load proxy config from environment variables with sensible defaults */
@@ -63,5 +65,6 @@ export function loadConfig(): ProxyConfig {
     maxConnectionsPerIp,
     trustProxy: process.env.TRUST_PROXY === 'true',
     logLevel,
+    proxyApiKey: process.env.PROXY_API_KEY || undefined,
   };
 }

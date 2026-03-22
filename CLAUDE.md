@@ -11,7 +11,7 @@ Embeddable JavaScript chat widget for GoClaw AI agent gateway.
 ```
 src/
 ├── index.ts                    Entry point, init(), window auto-attach
-├── types.ts                    All TypeScript interfaces (GoClawConfig includes proxyUrl)
+├── types.ts                    All TypeScript interfaces (GoClawConfig — proxy-only, no direct mode)
 ├── websocket-client.ts         WS connection, auth, RPC, events, reconnect
 ├── chat-widget.ts              Shadow DOM UI, message rendering
 ├── markdown-renderer.ts        Lightweight markdown→HTML
@@ -54,4 +54,4 @@ npm start            # Run compiled proxy
 - GoClaw WebSocket Protocol v3 (req/res/event frames)
 - Exponential backoff reconnection
 - Async snippet loader pattern (like Intercom)
-- Proxy mode: backend injects auth token into WS connect frame, client never sees it
+- Proxy-only: backend injects auth token into WS connect frame, client never sees it (no direct mode)

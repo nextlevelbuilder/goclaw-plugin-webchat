@@ -18,8 +18,7 @@ let widgetInstance: GoClawWidget | null = null;
  *
  * const app = createApp(App);
  * app.use(GoClawPlugin, {
- *   url: 'wss://goclaw.example.com/ws',
- *   token: 'your-token',
+ *   url: 'wss://proxy.example.com/ws',
  *   title: 'Support',
  * });
  * ```
