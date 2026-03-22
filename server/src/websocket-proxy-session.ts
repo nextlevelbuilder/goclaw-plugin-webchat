@@ -3,6 +3,13 @@
 import WebSocket from 'ws';
 import type { ProxyConfig } from './proxy-config.js';
 
+/** Max messages buffered before upstream is ready */
+const MAX_PENDING_MESSAGES = 10;
+
+/** Max messages per minute per session (rate limit) */
+const MSG_RATE_LIMIT = 60;
+const MSG_RATE_WINDOW_MS = 60_000;
+
 /** Represents a proxied WebSocket session between client and GoClaw Gateway */
 export class WebSocketProxySession {
   private upstream: WebSocket | null = null;
@@ -11,6 +18,7 @@ export class WebSocketProxySession {
   private sessionId: string;
   private pendingMessages: string[] = [];
   private connectTimeout: ReturnType<typeof setTimeout> | null = null;
+  private msgTimestamps: number[] = []; // sliding window for rate limiting
 
   constructor(
     private client: WebSocket,
@@ -56,10 +64,10 @@ export class WebSocketProxySession {
       this.pendingMessages = [];
     });
 
-    // Relay upstream → client (passthrough all frames)
+    // Relay upstream → client (strip any token fields for defense in depth)
     this.upstream.on('message', (data) => {
       if (this.closed || this.client.readyState !== WebSocket.OPEN) return;
-      this.client.send(data);
+      this.client.send(this.sanitizeUpstreamFrame(data.toString()));
     });
 
     this.upstream.on('close', (code, reason) => {
@@ -76,12 +84,22 @@ export class WebSocketProxySession {
     this.client.on('message', (data) => {
       if (this.closed || !this.upstream) return;
 
+      // Rate limit: sliding window
+      if (!this.checkRateLimit()) {
+        this.log('warn', 'message rate limit exceeded');
+        return;
+      }
+
       const raw = data.toString();
       const modified = this.interceptFrame(raw);
       if (!modified) return; // dropped non-JSON frame
 
-      // Buffer messages until upstream is open
+      // Buffer messages until upstream is open (with cap)
       if (!this.upstreamReady) {
+        if (this.pendingMessages.length >= MAX_PENDING_MESSAGES) {
+          this.log('warn', 'pending buffer full, dropping message');
+          return;
+        }
         this.log('debug', 'buffering message (upstream not ready)');
         this.pendingMessages.push(modified);
         return;
@@ -130,6 +148,28 @@ export class WebSocketProxySession {
       this.log('warn', 'dropping non-JSON frame from client');
       return '';
     }
+  }
+
+  /** Strip token fields from upstream responses to prevent accidental leakage */
+  private sanitizeUpstreamFrame(raw: string): string {
+    try {
+      const frame = JSON.parse(raw);
+      if (frame.type === 'res' && frame.payload?.token) {
+        delete frame.payload.token;
+        return JSON.stringify(frame);
+      }
+    } catch { /* non-JSON upstream frame — pass through */ }
+    return raw;
+  }
+
+  /** Sliding window rate limiter: returns true if message is allowed */
+  private checkRateLimit(): boolean {
+    const now = Date.now();
+    // Remove timestamps outside the window
+    this.msgTimestamps = this.msgTimestamps.filter((t) => now - t < MSG_RATE_WINDOW_MS);
+    if (this.msgTimestamps.length >= MSG_RATE_LIMIT) return false;
+    this.msgTimestamps.push(now);
+    return true;
   }
 
   private closeClient(code: number, reason: string): void {

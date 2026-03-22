@@ -100,12 +100,14 @@ export function startProxyServer(config: ProxyConfig): void {
   process.on('SIGTERM', shutdown);
 }
 
-/** Validate request origin against allowed origins list */
+/** Validate request origin against allowed origins list.
+ * When origins are configured, missing Origin header is rejected
+ * to prevent bypass via non-browser clients. */
 function checkOrigin(req: IncomingMessage, allowedOrigins: string[]): boolean {
-  if (allowedOrigins.length === 0) return true; // no restriction
+  if (allowedOrigins.length === 0) return true; // no restriction configured
 
   const origin = req.headers.origin;
-  if (!origin) return true; // non-browser clients (CLI, SDK)
+  if (!origin) return false; // reject missing origin when allowlist is active
 
   return allowedOrigins.some((allowed) => allowed === '*' || allowed === origin);
 }
