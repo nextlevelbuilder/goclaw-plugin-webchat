@@ -1,8 +1,12 @@
 /**
- * Vue 3 Integration Example
+ * Vue 3 Integration Example (Proxy Mode)
  *
- * Install:
- *   npm install @goclaw/webchat
+ * Prerequisites:
+ *   1. Start the proxy server: cd server && npm run dev
+ *   2. npm install @goclaw/webchat
+ *
+ * The proxy server keeps the auth token server-side.
+ * The widget only needs the proxy URL — no token required.
  *
  * In your main.ts:
  */
@@ -14,8 +18,7 @@ import { GoClawPlugin } from '@goclaw/webchat/vue';
 const app = createApp({ template: '<div>App</div>' });
 
 app.use(GoClawPlugin, {
-  url: 'wss://goclaw.example.com/ws',
-  token: 'your-gateway-token',
+  url: 'wss://proxy.example.com/ws',
   title: 'AI Assistant',
   subtitle: 'Online',
   theme: 'auto',

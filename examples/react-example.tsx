@@ -1,10 +1,12 @@
 /**
- * React Integration Example
+ * React Integration Example (Proxy Mode)
  *
- * Install:
- *   npm install @goclaw/webchat
+ * Prerequisites:
+ *   1. Start the proxy server: cd server && npm run dev
+ *   2. npm install @goclaw/webchat
  *
- * Usage in your React app:
+ * The proxy server keeps the auth token server-side.
+ * The widget only needs the proxy URL — no token required.
  */
 
 import { useRef } from 'react';
@@ -24,8 +26,7 @@ export default function App() {
 
       <GoClawChat
         widgetRef={widgetRef}
-        url="wss://goclaw.example.com/ws"
-        token="your-gateway-token"
+        url="wss://proxy.example.com/ws"
         title="AI Support"
         subtitle="Typically replies instantly"
         welcomeMessage="Hi there! How can we help you today?"

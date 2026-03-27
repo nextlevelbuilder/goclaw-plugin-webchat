@@ -119,25 +119,31 @@ export class WebSocketProxySession {
   private interceptFrame(raw: string): string | null {
     try {
       const frame = JSON.parse(raw);
+      if (frame.type !== 'req') return raw;
 
-      if (frame.type !== 'req' || frame.method !== 'connect') {
-        return raw;
-      }
+      let modified = false;
 
-      // Inject gateway token (server-side, never exposed to client)
-      if (this.config.goclawToken) {
+      // Inject gateway token into connect frame (server-side, never exposed to client)
+      if (frame.method === 'connect' && this.config.goclawToken) {
         frame.params = frame.params ?? {};
         frame.params.token = this.config.goclawToken;
+        modified = true;
       }
 
-      // Inject default agent_id if not already set by client
-      if (this.config.defaultAgentId && !frame.params?.agent_id) {
+      // Inject default agentId into chat.send if not set by client
+      if (frame.method === 'chat.send'
+        && this.config.defaultAgentId && !frame.params?.agentId) {
         frame.params = frame.params ?? {};
-        frame.params.agent_id = this.config.defaultAgentId;
+        frame.params.agentId = this.config.defaultAgentId;
+        modified = true;
       }
 
-      this.log('debug', 'injected auth token into connect frame');
-      return JSON.stringify(frame);
+      if (modified) {
+        this.log('debug', `injected server-side params into ${frame.method} frame`);
+        return JSON.stringify(frame);
+      }
+
+      return raw;
     } catch {
       // GoClaw protocol is JSON-only — drop non-JSON frames
       this.log('warn', 'dropping non-JSON frame from client');

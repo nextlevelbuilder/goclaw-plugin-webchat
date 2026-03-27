@@ -86,9 +86,9 @@ export class GoClawWebSocketClient {
 
   /** Send a chat message and return the request ID for tracking streaming */
   async sendMessage(content: string): Promise<string> {
-    const params: Record<string, unknown> = { content };
-    if (this.config.agentId) params.agent_id = this.config.agentId;
-    if (this.currentSessionId) params.session_id = this.currentSessionId;
+    const params: Record<string, unknown> = { message: content, stream: true };
+    if (this.config.agentId) params.agentId = this.config.agentId;
+    if (this.currentSessionId) params.sessionKey = this.currentSessionId;
 
     // Create user message immediately for optimistic UI
     const userMsg: ChatMessage = {
@@ -122,9 +122,9 @@ export class GoClawWebSocketClient {
       throw new Error(res.error?.message ?? 'Failed to send message');
     }
 
-    // Capture session ID from response
-    if (res.payload?.session_id) {
-      this.currentSessionId = res.payload.session_id as string;
+    // Capture session/run ID from response
+    if (res.payload?.sessionKey) {
+      this.currentSessionId = res.payload.sessionKey as string;
     }
 
     return res.id;
@@ -139,7 +139,7 @@ export class GoClawWebSocketClient {
   async getHistory(): Promise<ChatMessage[]> {
     if (!this.currentSessionId) return [];
     const res = await this.request('chat.history', {
-      session_id: this.currentSessionId,
+      sessionKey: this.currentSessionId,
     });
     if (!res.ok || !res.payload?.messages) return [];
     return (res.payload.messages as Array<Record<string, unknown>>).map(
@@ -183,13 +183,7 @@ export class GoClawWebSocketClient {
   private createAndAuthenticate(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        let wsUrl = this.config.url;
-        // Append API key if configured
-        if (this.config.apiKey) {
-          const separator = wsUrl.includes('?') ? '&' : '?';
-          wsUrl = `${wsUrl}${separator}apiKey=${encodeURIComponent(this.config.apiKey)}`;
-        }
-        this.ws = new WebSocket(wsUrl);
+        this.ws = new WebSocket(this.config.url);
       } catch (err) {
         reject(err instanceof Error ? err : new Error(String(err)));
         return;
@@ -249,17 +243,30 @@ export class GoClawWebSocketClient {
   }
 
   private handleEvent(frame: WsEvent): void {
-    const payload = frame.payload ?? {};
+    const outerPayload = frame.payload ?? {};
 
     // Emit raw event to listeners
     const listeners = this.eventListeners.get(frame.event);
-    listeners?.forEach((cb) => cb(payload));
+    listeners?.forEach((cb) => cb(outerPayload));
+
+    // GoClaw wraps agent events: { event: "agent", payload: { type: "chunk", payload: { content } } }
+    const eventType = frame.event === 'agent'
+      ? (outerPayload.type as string) ?? frame.event
+      : frame.event;
+    const innerPayload = frame.event === 'agent'
+      ? (outerPayload.payload as Record<string, unknown>) ?? {}
+      : outerPayload;
+
+    // Also emit the unwrapped event type
+    if (frame.event === 'agent') {
+      this.eventListeners.get(eventType)?.forEach((cb) => cb(innerPayload));
+    }
 
     // Handle streaming events for chat UI
-    switch (frame.event) {
+    switch (eventType) {
       case 'chunk':
         if (this.streamingMessage) {
-          this.streamingMessage.content += (payload.content as string) || '';
+          this.streamingMessage.content += (innerPayload.content as string) || '';
           this.notifyMessage({ ...this.streamingMessage });
         }
         break;
@@ -267,8 +274,8 @@ export class GoClawWebSocketClient {
       case 'tool.call':
         if (this.streamingMessage) {
           const toolCall: ToolCall = {
-            name: payload.name as string,
-            id: payload.id as string,
+            name: innerPayload.name as string,
+            id: innerPayload.id as string,
             status: 'running',
           };
           this.streamingMessage.toolCalls = this.streamingMessage.toolCalls || [];
@@ -280,11 +287,11 @@ export class GoClawWebSocketClient {
       case 'tool.result':
         if (this.streamingMessage) {
           const tc = this.streamingMessage.toolCalls?.find(
-            (t) => t.id === payload.id
+            (t) => t.id === innerPayload.id
           );
           if (tc) {
             tc.status = 'completed';
-            tc.result = payload.result as string;
+            tc.result = innerPayload.result as string;
           }
           this.notifyMessage({ ...this.streamingMessage });
         }
@@ -303,7 +310,7 @@ export class GoClawWebSocketClient {
           this.streamingMessage.streaming = false;
           if (!this.streamingMessage.content) {
             this.streamingMessage.content =
-              (payload.error as string) || 'An error occurred.';
+              (innerPayload.error as string) || 'An error occurred.';
           }
           this.notifyMessage({ ...this.streamingMessage });
           this.streamingMessage = null;

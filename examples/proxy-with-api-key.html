@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GoClaw WebChat - Proxy with API Key</title>
+  <link rel="stylesheet" href="examples.css">
+  <style>
+    h1 { color: var(--amber); }
+    .feature-tag { background: #fef3c7; color: #92400e; }
+    .step { border-left-color: var(--amber); }
+    .step-num { color: var(--amber); }
+    .warn { border-color: #f59e0b; background: #fffbeb; }
+    .warn .note-icon { color: #f59e0b; }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <h1>Proxy + API Key <span class="badge badge-amber">Auth</span></h1>
+    <p>When <code>PROXY_API_KEY</code> is set on the proxy server, only backend services
+       that provide a matching key can connect. This is for <strong>server-to-server</strong>
+       authentication, not browser clients.</p>
+  </div>
+
+  <h2>When to Use</h2>
+  <div class="features">
+    <span class="feature-tag">Express/Node.js backend</span>
+    <span class="feature-tag">Multi-tenant</span>
+    <span class="feature-tag">Backend-to-proxy auth</span>
+  </div>
+
+  <div class="note warn">
+    <span class="note-icon">&#9888;</span>
+    <span><strong>Security:</strong> The <code>PROXY_API_KEY</code> must <strong>never</strong> be
+    exposed in client-side JavaScript. It is used only by backend services (Express, nginx, etc.)
+    that connect to the proxy on behalf of browser clients. Browser clients connect through
+    <em>your backend</em>, which adds the API key server-side.</span>
+  </div>
+
+  <h2>Architecture</h2>
+  <div class="steps">
+    <div class="step">
+      <span class="step-num">1</span>
+      <span class="step-text">Browser connects to <strong>your backend</strong> (Express, nginx, etc.)</span>
+    </div>
+    <div class="step">
+      <span class="step-num">2</span>
+      <span class="step-text">Your backend connects to proxy with <code>X-API-Key</code> header or <code>?apiKey=xxx</code></span>
+    </div>
+    <div class="step">
+      <span class="step-num">3</span>
+      <span class="step-text">Proxy verifies API key, then relays to GoClaw Gateway with <code>GOCLAW_TOKEN</code></span>
+    </div>
+  </div>
+
+  <h2>Proxy Server Setup</h2>
+  <pre><code># server/.env
+GOCLAW_URL=wss://your-gateway.goclaw.sh/ws
+GOCLAW_TOKEN=your-gateway-token
+PROXY_API_KEY=my-secret-proxy-key</code></pre>
+
+  <h2>Backend Integration (Express example)</h2>
+  <pre><code>// Your Express backend — API key stays server-side
+const PROXY_API_KEY = process.env.PROXY_API_KEY;
+
+// Proxy WebSocket from browser → proxy server
+wss.on('connection', (clientWs) =&gt; {
+  const upstream = new WebSocket(
+    `ws://proxy:3100/ws?apiKey=${PROXY_API_KEY}`
+  );
+  // relay frames between client and proxy...
+});</code></pre>
+
+  <h2>Client Code (no API key!)</h2>
+  <pre><code>// Browser connects to YOUR backend, not directly to proxy
+GoClaw.init({
+  url: 'wss://your-backend.com/ws',
+  title: 'Chat with us',
+});</code></pre>
+
+  <div class="note">
+    <span class="note-icon">&#9432;</span>
+    <span>This example connects directly to the proxy for demo purposes (no API key required).
+    In production, set <code>PROXY_API_KEY</code> and route through your backend.</span>
+  </div>
+
+  <script src="../dist/goclaw-webchat.umd.js"></script>
+  <script>
+    GoClaw.init({
+      url: 'ws://localhost:3100/ws',
+      title: 'AI Assistant',
+      subtitle: 'API key protected',
+      welcomeMessage: 'This proxy supports API key auth for backend-to-proxy connections.',
+      theme: {
+        base: 'light',
+        primaryColor: '#f59e0b',
+        userBubbleColor: '#f59e0b',
+      },
+    });
+  </script>
+</body>
+</html>

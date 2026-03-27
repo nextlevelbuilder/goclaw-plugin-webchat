@@ -4,21 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GoClaw WebChat - Customized Example</title>
+  <link rel="stylesheet" href="examples.css">
   <style>
-    body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }
-    h1 { color: #059669; }
-    .demo-buttons { display: flex; gap: 8px; flex-wrap: wrap; margin: 20px 0; }
-    .demo-buttons button {
-      padding: 8px 16px; border-radius: 8px; border: 1px solid #d1d5db;
-      background: white; cursor: pointer; font-size: 14px;
-    }
-    .demo-buttons button:hover { background: #f3f4f6; }
+    h1 { color: var(--emerald); }
+    .feature-tag { background: #ecfdf5; color: var(--emerald); }
   </style>
 </head>
 <body>
-  <h1>GoClaw WebChat - Customized Example</h1>
-  <p>Custom branding, bottom-left position, programmatic control.</p>
+  <div class="page-header">
+    <h1>Customized Example</h1>
+    <p>Custom branding, bottom-left position, programmatic control, and theme switching.</p>
+  </div>
 
+  <h2>Programmatic Control</h2>
   <div class="demo-buttons">
     <button onclick="widget.open()">Open Chat</button>
     <button onclick="widget.close()">Close Chat</button>
@@ -27,10 +25,18 @@
     <button onclick="switchTheme()">Switch Theme</button>
   </div>
 
-  <h2>Custom Theme</h2>
-  <pre style="background: #1f2937; color: #f9fafb; padding: 16px; border-radius: 8px;"><code>GoClaw.init({
-  url: 'wss://your-server.com/ws',
-  token: 'your-token',
+  <h2>Features</h2>
+  <div class="features">
+    <span class="feature-tag">Custom branding</span>
+    <span class="feature-tag">Bottom-left</span>
+    <span class="feature-tag">Programmatic API</span>
+    <span class="feature-tag">Theme switching</span>
+    <span class="feature-tag">Event callbacks</span>
+  </div>
+
+  <h2>Custom Theme Code</h2>
+  <pre><code>GoClaw.init({
+  url: 'wss://proxy.example.com/ws',
   position: 'bottom-left',
   theme: {
     base: 'light',
@@ -46,8 +52,7 @@
     let isDark = false;
 
     const widget = GoClaw.init({
-      url: 'wss://localhost:8080/ws',
-      token: 'demo-token',
+      url: 'ws://localhost:3100/ws',
       title: 'Emerald Support',
       subtitle: 'Online',
       position: 'bottom-left',
@@ -62,7 +67,7 @@
       onOpen: () => console.log('Chat opened'),
       onClose: () => console.log('Chat closed'),
       onMessage: (msg) => console.log('Message:', msg),
-      onConnect: () => console.log('Connected to GoClaw'),
+      onConnect: () => console.log('Connected via proxy'),
     });
 
     function switchTheme() {

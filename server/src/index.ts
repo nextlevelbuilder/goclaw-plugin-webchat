@@ -1,6 +1,7 @@
 // ── GoClaw WebChat Proxy Server ──
 // Keeps gateway auth tokens server-side, proxies WebSocket frames to GoClaw Gateway.
 
+import 'dotenv/config';
 import { loadConfig } from './proxy-config.js';
 import { startProxyServer } from './proxy-server.js';
 
