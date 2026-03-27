@@ -211,6 +211,62 @@ If you already run Express/Node.js, embed the proxy directly instead of running 
 
 For production deployment with nginx reverse proxy, see `examples/docker-compose.yml`.
 
+## Alternative Proxy Servers
+
+Don't use Node.js? We provide proxy server examples in **Python**, **Go**, and **PHP**. Each implements the same proxy pattern (token injection, frame sanitization, origin validation).
+
+### Python (aiohttp)
+
+```bash
+cd examples/python-proxy
+pip install -r requirements.txt
+cp .env.example .env   # fill in GOCLAW_URL and GOCLAW_TOKEN
+python proxy.py
+```
+
+Or with Docker:
+
+```bash
+cd examples/python-proxy
+docker build -t goclaw-proxy-python .
+docker run -p 3100:3100 --env-file .env goclaw-proxy-python
+```
+
+### Go (gorilla/websocket)
+
+```bash
+cd examples/go-proxy
+cp .env.example .env   # fill in GOCLAW_URL and GOCLAW_TOKEN
+go run main.go
+```
+
+Or with Docker:
+
+```bash
+cd examples/go-proxy
+docker build -t goclaw-proxy-go .
+docker run -p 3100:3100 --env-file .env goclaw-proxy-go
+```
+
+### PHP (Ratchet + ReactPHP)
+
+```bash
+cd examples/php-proxy
+composer install
+cp .env.example .env   # fill in GOCLAW_URL and GOCLAW_TOKEN
+php proxy.php
+```
+
+Or with Docker:
+
+```bash
+cd examples/php-proxy
+docker build -t goclaw-proxy-php .
+docker run -p 3100:3100 --env-file .env goclaw-proxy-php
+```
+
+All proxy servers listen on `:3100/ws` by default and support the same environment variables (see [Proxy Server Configuration](#proxy-server-configuration)).
+
 ## Configuration
 
 | Option | Type | Default | Description |

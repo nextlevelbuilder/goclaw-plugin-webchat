@@ -2,6 +2,8 @@ node_modules/
 dist/
 *.local
 .env
-.env.*
+!.env.example
 plans/
 .claude/
+__pycache__/
+*.pyc
