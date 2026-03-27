@@ -347,8 +347,8 @@ export class ChatWidget implements GoClawWidget {
       contentEl.innerHTML = renderMarkdown(msg.content);
     }
 
-    // Update tool call indicators
-    if (msg.toolCalls?.length) {
+    // Update tool call indicators (only if showToolCalls is enabled)
+    if (this.config.showToolCalls && msg.toolCalls?.length) {
       let toolContainer = el.querySelector('.gc-msg-tools');
       if (!toolContainer) {
         toolContainer = document.createElement('div');

@@ -40,6 +40,9 @@ export interface GoClawConfig {
   container?: HTMLElement;
   /** Z-index for the widget (default: 999999) */
   zIndex?: number;
+  /** Show tool call indicators in chat UI (default: false).
+   * Tool call data is still available via onMessage callback regardless of this setting. */
+  showToolCalls?: boolean;
   /** Locale for i18n (default: 'en') */
   locale?: string;
   /** Callback hooks */
