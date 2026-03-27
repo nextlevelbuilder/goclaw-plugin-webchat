@@ -230,6 +230,7 @@ For production deployment with nginx reverse proxy, see `examples/docker-compose
 | `customCss` | `string` | — | Extra CSS for Shadow DOM |
 | `reconnect` | `boolean` | `true` | Auto-reconnect on disconnect |
 | `maxReconnectAttempts` | `number` | `10` | Max reconnection attempts |
+| `showToolCalls` | `boolean` | `false` | Show tool call indicators in chat |
 | `zIndex` | `number` | `999999` | CSS z-index |
 
 ## Proxy Server Configuration
