@@ -4,43 +4,42 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GoClaw WebChat - Basic Example</title>
-  <style>
-    body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }
-    h1 { color: #6366f1; }
-    code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
-    pre { background: #1f2937; color: #f9fafb; padding: 16px; border-radius: 8px; overflow-x: auto; }
-  </style>
+  <link rel="stylesheet" href="examples.css">
 </head>
 <body>
-  <h1>GoClaw WebChat - Basic Example</h1>
-  <p>This page demonstrates the simplest integration. A chat widget appears in the bottom-right corner.</p>
+  <div class="page-header">
+    <h1>Basic Example</h1>
+    <p>The simplest integration. A chat widget appears in the bottom-right corner.</p>
+  </div>
+
+  <h2>Features</h2>
+  <div class="features">
+    <span class="feature-tag">Auto theme</span>
+    <span class="feature-tag">Proxy-only auth</span>
+    <span class="feature-tag">Bottom-right position</span>
+    <span class="feature-tag">Welcome message</span>
+  </div>
 
   <h2>Integration Code</h2>
   <pre><code>&lt;script src="https://cdn.example.com/goclaw-webchat.umd.js"&gt;&lt;/script&gt;
 &lt;script&gt;
   GoClaw.init({
-    url: 'wss://your-goclaw-server.com/ws',
-    token: 'your-gateway-token',
+    url: 'wss://proxy.example.com/ws',
     title: 'Chat with us',
     theme: 'auto',
   });
 &lt;/script&gt;</code></pre>
 
-  <h2>Features Demonstrated</h2>
-  <ul>
-    <li>Auto theme (follows system preference)</li>
-    <li>Token-based authentication</li>
-    <li>Default position (bottom-right)</li>
-    <li>Welcome message</li>
-  </ul>
+  <div class="note">
+    <span class="note-icon">&#9432;</span>
+    <span>The <code>url</code> points to your proxy server. The gateway auth token is kept
+    server-side and never exposed to the browser.</span>
+  </div>
 
-  <!-- GoClaw WebChat Integration -->
   <script src="../dist/goclaw-webchat.umd.js"></script>
   <script>
-    // Replace with your actual GoClaw server URL and token
     GoClaw.init({
-      url: 'wss://localhost:8080/ws',
-      token: 'demo-token',
+      url: 'ws://localhost:3100/ws',
       title: 'AI Assistant',
       subtitle: 'Ask me anything',
       welcomeMessage: 'Hello! How can I help you today?',

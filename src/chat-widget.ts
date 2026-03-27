@@ -192,12 +192,11 @@ export class ChatWidget implements GoClawWidget {
               </div>`
             : ''
           }
-        </div>
-
-        <div class="gc-typing" aria-label="Agent is typing">
-          <span class="gc-typing-dot"></span>
-          <span class="gc-typing-dot"></span>
-          <span class="gc-typing-dot"></span>
+          <div class="gc-typing" aria-label="Agent is typing">
+            <span class="gc-typing-dot"></span>
+            <span class="gc-typing-dot"></span>
+            <span class="gc-typing-dot"></span>
+          </div>
         </div>
 
         <div class="gc-input-area">

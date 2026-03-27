@@ -3,36 +3,53 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GoClaw WebChat - Async Snippet (like Intercom)</title>
-  <style>
-    body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }
-    h1 { color: #6366f1; }
-    pre { background: #1f2937; color: #f9fafb; padding: 16px; border-radius: 8px; overflow-x: auto; }
-  </style>
+  <title>GoClaw WebChat - Async Snippet</title>
+  <link rel="stylesheet" href="examples.css">
 </head>
 <body>
-  <h1>Async Snippet Example</h1>
-  <p>This loading pattern is non-blocking — the script loads asynchronously and processes queued commands. Identical to how Intercom, Drift, and similar widgets load.</p>
+  <div class="page-header">
+    <h1>Async Snippet <span class="badge badge-brand">Non-blocking</span></h1>
+    <p>Non-blocking script loader pattern. Identical to how Intercom, Drift, and similar widgets load.</p>
+  </div>
+
+  <h2>Features</h2>
+  <div class="features">
+    <span class="feature-tag">Async loading</span>
+    <span class="feature-tag">Queue-based init</span>
+    <span class="feature-tag">Non-blocking</span>
+    <span class="feature-tag">Copy-paste ready</span>
+  </div>
 
   <h2>Copy-Paste Snippet</h2>
   <pre><code>&lt;script&gt;
-  // GoClaw WebChat async loader
   (function(w,d,s,u){
     w.__goclaw_queue=w.__goclaw_queue||[];
-    w.GoClaw=w.GoClaw||{init:function(){w.__goclaw_queue.push(['init',arguments[0]])}};
-    var f=d.getElementsByTagName(s)[0],j=d.createElement(s);
-    j.async=true;j.src=u;f.parentNode.insertBefore(j,f);
-  })(window,document,'script','https://cdn.example.com/goclaw-webchat.umd.js');
+    w.GoClaw=w.GoClaw||{
+      init:function(){
+        w.__goclaw_queue.push(['init',arguments[0]])
+      }
+    };
+    var f=d.getElementsByTagName(s)[0],
+        j=d.createElement(s);
+    j.async=true;
+    j.src=u;
+    f.parentNode.insertBefore(j,f);
+  })(window,document,'script',
+    'https://cdn.example.com/goclaw-webchat.umd.js');
 
   GoClaw.init({
-    url: 'wss://your-server.com/ws',
-    token: 'your-token',
+    url: 'wss://proxy.example.com/ws',
     title: 'Chat with us',
     theme: 'auto',
   });
 &lt;/script&gt;</code></pre>
 
-  <!-- Async loader -->
+  <div class="note">
+    <span class="note-icon">&#9432;</span>
+    <span>Commands called before the script loads are queued and replayed automatically.
+    The page never blocks on the widget script.</span>
+  </div>
+
   <script>
     (function(w,d,s,u){
       w.__goclaw_queue=w.__goclaw_queue||[];
@@ -42,12 +59,11 @@
     })(window,document,'script','../dist/goclaw-webchat.umd.js');
 
     GoClaw.init({
-      url: 'wss://localhost:8080/ws',
-      token: 'demo-token',
+      url: 'ws://localhost:3100/ws',
       title: 'Chat Support',
       subtitle: 'AI-powered',
       theme: 'light',
-      welcomeMessage: 'Hi! This widget loaded asynchronously — just like Intercom.',
+      welcomeMessage: 'Hi! This widget loaded asynchronously.',
     });
   </script>
 </body>

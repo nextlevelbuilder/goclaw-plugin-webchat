@@ -1,0 +1,238 @@
+/* Shared styles for GoClaw WebChat example pages */
+
+:root {
+  --brand: #6366f1;
+  --brand-light: #eef2ff;
+  --emerald: #059669;
+  --amber: #f59e0b;
+  --success: #22c55e;
+  --surface: #ffffff;
+  --surface-alt: #f8fafc;
+  --text: #1e293b;
+  --text-secondary: #64748b;
+  --border: #e2e8f0;
+  --code-bg: #0f172a;
+  --code-text: #e2e8f0;
+  --code-comment: #64748b;
+  --code-string: #a5f3fc;
+  --code-keyword: #c4b5fd;
+  --radius: 10px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+  color: var(--text);
+  line-height: 1.6;
+  background: var(--surface);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 32px 0 12px;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+p { margin: 0 0 16px; color: var(--text-secondary); }
+ul { margin: 0 0 16px; padding-left: 20px; color: var(--text-secondary); }
+li { margin: 4px 0; }
+
+a { color: var(--brand); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Inline code */
+code {
+  font-family: "JetBrains Mono", "Fira Code", "SF Mono", Consolas, monospace;
+  font-size: 0.85em;
+  background: var(--brand-light);
+  color: var(--brand);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* Code blocks */
+pre {
+  background: var(--code-bg);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin: 12px 0 20px;
+  overflow-x: auto;
+  border: 1px solid #1e293b;
+}
+
+pre code {
+  background: none;
+  color: var(--code-text);
+  padding: 0;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.7;
+  display: block;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+/* Badge */
+.badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 999px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badge-green { background: var(--success); color: white; }
+.badge-amber { background: var(--amber); color: white; }
+.badge-brand { background: var(--brand); color: white; }
+
+/* Step list */
+.steps { margin: 12px 0 20px; }
+
+.step {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 16px;
+  margin: 0;
+  background: var(--surface-alt);
+  border-left: 3px solid var(--brand);
+}
+
+.step:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+.step:last-child { border-radius: 0 0 var(--radius) var(--radius); }
+.step + .step { border-top: 1px solid var(--border); }
+
+.step-num {
+  font-weight: 700;
+  color: var(--brand);
+  font-size: 0.8125rem;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+
+.step-text { color: var(--text-secondary); font-size: 0.9375rem; }
+
+/* Note/callout */
+.note {
+  display: flex;
+  gap: 12px;
+  padding: 14px 18px;
+  margin: 16px 0;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.note-icon { flex-shrink: 0; font-size: 1rem; }
+.note strong { color: var(--text); }
+
+/* Demo buttons */
+.demo-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+
+.demo-buttons button {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.demo-buttons button:hover {
+  background: var(--surface-alt);
+  border-color: #cbd5e1;
+}
+
+/* Header area */
+.page-header { margin-bottom: 24px; }
+.page-header p { margin: 0; font-size: 0.9375rem; }
+
+/* Architecture diagram */
+.arch-diagram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 24px 16px;
+  margin: 12px 0 20px;
+  background: var(--surface-alt);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.arch-box {
+  text-align: center;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  min-width: 120px;
+}
+
+.arch-box-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.arch-box-sub {
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+}
+
+.arch-arrow {
+  font-size: 1.25rem;
+  color: var(--text-secondary);
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+/* Feature tags */
+.features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 20px;
+}
+
+.feature-tag {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--brand-light);
+  color: var(--brand);
+}

@@ -4,22 +4,56 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GoClaw WebChat - Proxy Mode (Secure)</title>
-  <style>
-    body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }
-    h1 { color: #6366f1; }
-    code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
-    pre { background: #1f2937; color: #f9fafb; padding: 16px; border-radius: 8px; overflow-x: auto; }
-    .badge { background: #22c55e; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
-  </style>
+  <link rel="stylesheet" href="examples.css">
 </head>
 <body>
-  <h1>GoClaw WebChat - Proxy Mode <span class="badge">Secure</span></h1>
-  <p>This example uses a proxy server to keep the auth token server-side.
-     No token appears in client-side code.</p>
+  <div class="page-header">
+    <h1>Proxy Mode <span class="badge badge-green">Secure</span></h1>
+    <p>The widget connects through a proxy server that keeps the gateway auth token server-side.
+       No token ever appears in client-side code or browser DevTools.</p>
+  </div>
 
   <h2>Architecture</h2>
-  <pre><code>Browser Widget ←→ Proxy Server (:3100) ←→ GoClaw Gateway (:9090)
-  (no token)      (holds token)           (validates token)</code></pre>
+  <div class="arch-diagram">
+    <div class="arch-box">
+      <div class="arch-box-label">Browser Widget</div>
+      <div class="arch-box-sub">no token</div>
+    </div>
+    <div class="arch-arrow">&larr;&rarr;</div>
+    <div class="arch-box" style="border-color: var(--brand);">
+      <div class="arch-box-label">Proxy Server</div>
+      <div class="arch-box-sub">:3100 &middot; injects token</div>
+    </div>
+    <div class="arch-arrow">&larr;&rarr;</div>
+    <div class="arch-box">
+      <div class="arch-box-label">GoClaw Gateway</div>
+      <div class="arch-box-sub">validates token</div>
+    </div>
+  </div>
+
+  <h2>How It Works</h2>
+  <div class="steps">
+    <div class="step">
+      <span class="step-num">1</span>
+      <span class="step-text">Widget connects to proxy via WebSocket at <code>ws://localhost:3100/ws</code></span>
+    </div>
+    <div class="step">
+      <span class="step-num">2</span>
+      <span class="step-text">Widget sends a <code>connect</code> frame (no token)</span>
+    </div>
+    <div class="step">
+      <span class="step-num">3</span>
+      <span class="step-text">Proxy intercepts the frame, injects <code>GOCLAW_TOKEN</code> from env, forwards to gateway</span>
+    </div>
+    <div class="step">
+      <span class="step-num">4</span>
+      <span class="step-text">All subsequent frames are relayed transparently</span>
+    </div>
+    <div class="step">
+      <span class="step-num">5</span>
+      <span class="step-text">Proxy strips any token fields from upstream responses (defense in depth)</span>
+    </div>
+  </div>
 
   <h2>Setup</h2>
   <pre><code># 1. Configure the proxy server
@@ -27,30 +61,30 @@ cd server/
 cp .env.example .env
 # Edit .env: set GOCLAW_URL and GOCLAW_TOKEN
 
-# 2. Start the proxy
+# 2. Install deps &amp; start the proxy
+npm install
 npm run dev
 
-# 3. Open this page in a browser</code></pre>
+# 3. Build the widget (from project root)
+cd ..
+npm run build
 
-  <h2>Client Code (no token needed!)</h2>
+# 4. Open this page in a browser</code></pre>
+
+  <h2>Client Code</h2>
   <pre><code>GoClaw.init({
-  url: 'wss://your-goclaw-server.com/ws',  // fallback for direct mode
-  proxyUrl: 'ws://localhost:3100/ws',       // proxy handles auth
+  url: 'ws://localhost:3100/ws',   // proxy server — no token needed!
   title: 'Chat with us',
   theme: 'auto',
 });</code></pre>
 
-  <!-- GoClaw WebChat Integration (Proxy Mode) -->
   <script src="../dist/goclaw-webchat.umd.js"></script>
   <script>
     GoClaw.init({
-      // Direct URL as fallback (requires token)
-      url: 'ws://localhost:9090/ws',
-      // Proxy URL — auth token is kept server-side
-      proxyUrl: 'ws://localhost:3100/ws',
+      url: 'ws://localhost:3100/ws',
       title: 'AI Assistant',
       subtitle: 'Secure proxy mode',
-      welcomeMessage: 'Hello! This chat is powered through a secure proxy. No auth tokens are exposed in your browser.',
+      welcomeMessage: 'Hello! This chat connects through a secure proxy. No auth tokens are exposed in your browser.',
       theme: 'auto',
       placeholder: 'Type your message...',
     });
